@@ -9,7 +9,7 @@
 ;; Version: 1.0.2
 ;; Keywords: tex, emulation, vi, evil, wp
 ;; Homepage: https://github.com/iyefrat/evil-tex
-;; Package-Requires: ((emacs "25.1") (evil "1.0") (auctex "11.88"))
+;; Package-Requires: ((emacs "25.1") (evil "1.0"))
 ;;
 ;; This file is NOT part of GNU Emacs.
 ;;
@@ -36,7 +36,6 @@
 
 
 (require 'cl-lib)
-(require 'latex) ; from auctex
 (require 'evil)
 (require 'subr-x)
 
