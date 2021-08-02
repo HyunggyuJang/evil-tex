@@ -1,6 +1,6 @@
 ;;; evil-tex.el --- Useful features for editing LaTeX in evil-mode -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2020 Yoav Marco, Itai Y. Efrat
+;; Copyright (C) 2020-2021 Yoav Marco, Itai Y. Efrat
 ;;
 ;; Authors: Yoav Marco <https://github.com/ymarco>, Itai Y. Efrat <https://github.com/iyefrat>
 ;; Maintainers: Yoav Marco <yoavm448@gmail.com>, Itai Y. Efrat <itai3397@gmail.com>
@@ -9,7 +9,7 @@
 ;; Version: 1.0.2
 ;; Keywords: tex, emulation, vi, evil, wp
 ;; Homepage: https://github.com/iyefrat/evil-tex
-;; Package-Requires: ((emacs "25.1") (evil "1.0") (auctex "11.88"))
+;; Package-Requires: ((emacs "26.1") (evil "1.0") (auctex "11.88"))
 ;;
 ;; This file is NOT part of GNU Emacs.
 ;;
@@ -547,7 +547,7 @@ Respect the value of `evil-tex-include-newlines-in-envs'.
                         '("\\[" . "\\]"))))
     ;; put the \begin on a line of its own
     (when (and outer-math
-               (= (char-before (overlay-start left-ol-to-replace)) ?\n))
+               (/= (char-before (overlay-start left-ol-to-replace)) ?\n))
       (setcar replacement (concat "\n" (car replacement))))
     (evil-tex--overlay-replace left-ol-to-replace (car replacement))
     (evil-tex--overlay-replace right-ol-to-replace (cdr replacement))
@@ -596,6 +596,10 @@ Respect the value of `evil-tex-include-newlines-in-envs'.
 
 
 ;;; Some movement commands
+
+(declare-function org-previous-visible-heading "org")
+(declare-function org-next-visible-heading "org")
+(declare-function evil-org-inner-object "evil-org")
 
 (defun evil-tex-go-back-section (&optional arg)
   "Go back to the closest part/section/subsection etc.
