@@ -816,9 +816,7 @@ Respect the value of `evil-tex-include-newlines-in-envs'."
   (cons (format "\\begin{%s}%s"
                 env-name
                 (if evil-tex-include-newlines-in-envs "\n" ""))
-        (format "%s\\end{%s}"
-                (if evil-tex-include-newlines-in-envs "\n" "")
-                env-name)))
+        (format "\\end{%s}" env-name)))
 
 (defun evil-tex-format-env-cons-for-surrounding (env-cons)
   "Format ENV-CONS for surrounding.
@@ -826,7 +824,7 @@ Respect the value of `evil-tex-include-newlines-in-envs'."
 Add newlines if `evil-tex-include-newlines-in-envs' is t"
   (declare (side-effect-free t))
   (if evil-tex-include-newlines-in-envs
-      (cons (concat (car env-cons) "\n")  (concat "\n" (cdr env-cons)))
+      (cons (concat (car env-cons) "\n") (cdr env-cons))
     env-cons))
 
 (defun evil-tex-format-cdlatex-accent-for-surrounding (accent)
