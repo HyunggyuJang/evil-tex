@@ -9,7 +9,7 @@
 ;; Version: 1.0.2
 ;; Keywords: tex, emulation, vi, evil, wp
 ;; Homepage: https://github.com/iyefrat/evil-tex
-;; Package-Requires: ((emacs "26.1") (evil "1.0") (auctex "11.88"))
+;; Package-Requires: ((emacs "26.1") (evil "1.0"))
 ;;
 ;; This file is NOT part of GNU Emacs.
 ;;
@@ -254,63 +254,6 @@ Math includes inline and display math, e.g. \\(foo\\), \\=\\[bar\\], and $baz$"
                           (>= (+ (nth 1 arg) 3) (point)))
                      (car arg)
                    most-negative-fixnum))))
-
-(defvar evil-tex--section-regexp
-  "\\\\\\(part\\|chapter\\|subsubsection\\|subsection\\|section\\|subparagraph\\|paragraph\\)\\*?\\>"
-  "Regexp for matches for LaTeX heading markup.")
-
-(defun evil-tex--section-regexp-higher (str)
-  "For heading of type STR, return a regexp for matching headings with an equal or more important level."
-  (cond
-   ((string-match "\\\\part\\*?\\>" str)
-    "\\\\part\\*?\\>")
-   ((string-match "\\\\chapter\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\)\\*?\\>")
-   ((string-match "\\\\section\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\|section\\)\\*?\\>")
-   ((string-match "\\\\subsection\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\|subsection\\|section\\)\\*?\\>")
-   ((string-match "\\\\subsubsection\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\|subsubsection\\|subsection\\|section\\)\\*?\\>")
-   ((string-match "\\\\paragraph\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\|subsubsection\\|subsection\\|section\\|paragraph\\)\\*?\\>")
-   ((string-match "\\\\subparagraph\\*?\\>" str)
-    "\\\\\\(?:part\\|chapter\\|subsubsection\\|subsection\\|section\\|subparagraph\\|paragraph\\)\\*?\\>")))
-
-(defun evil-tex--select-section ()
-  "Return (outer-beg outer-end inner-beg inner-end type) for section object.
-
-The outer variant is defined from the first character of the
-heading command, down to the line above the next heading of equal
-or higher importance.
-
-The inner variant starts after the end of the command, and
-respects a following newline if exists.
-
-'type' is the type of the heading, e.g subsection, chapter*.
-
-Asterisk variation (e.g \\section{} and \\section*{}) are treated the same."
-  (let (outer-beg outer-end inner-beg inner-end what-section)
-    (save-excursion
-      ;; back searching won't work if we are on the \section itself
-      (search-backward "\\" (line-beginning-position) t)
-      (if (looking-at evil-tex--section-regexp)
-          (setq what-section (match-string 0))
-        (re-search-backward evil-tex--section-regexp)
-        (setq what-section (match-string 0)))
-      ;; We are at backslash
-      (setq outer-beg (point))
-      (skip-chars-forward "^{")         ; goto opening brace
-      (forward-sexp)                    ; goto closing brace
-      (when (and evil-tex-select-newlines-with-envs
-                 (looking-at "\n"))
-        (forward-line 1))
-      (setq inner-beg (point))
-      (re-search-forward (concat (evil-tex--section-regexp-higher what-section) "\\|\\\\end{document}\\|\\'"))
-      (move-beginning-of-line 1)
-      (setq inner-end (point)
-            outer-end (point))
-      (list outer-beg outer-end inner-beg inner-end what-section))))
 
 (defun evil-tex--goto-script-prefix (subsup)
   "Go to end of the found SUBSUP (\"^\" or \"_\").
@@ -567,62 +510,9 @@ Respect the value of `evil-tex-include-newlines-in-envs'.
       (forward-char 1)
       (insert-char ?*))))
 
-(defvar evil-tex-section-name-history nil
-  "History used for changing section names with `evil-tex-toggle-section'.")
-
-(defun evil-tex-toggle-section ()
-  "Enter new name for surrounding section. Meta-n for original name."
-  (interactive)                         ; Sadly can't use interactive for the
-                                        ; new name, as we need orig-name first
-  (cl-destructuring-bind
-      (outer-beg _outer-end _inner-beg _inner-end section-type)
-      (evil-tex--select-section)
-    (save-excursion
-      (goto-char outer-beg)
-      (skip-chars-forward "^{")
-      (when-let ((curly (evil-inner-curly))
-                 (orig-name (buffer-substring-no-properties
-                             (nth 0 curly) (nth 1 curly)))
-                 (new-name
-                  (minibuffer-with-setup-hook
-                      (lambda () (add-hook 'pre-command-hook #'evil-ex-remove-default))
-                    (read-string (concat (substring section-type 1) ": ")
-                                 (propertize orig-name 'face 'shadow)
-                                 'evil-tex-section-name-history
-                                 orig-name t))))
-        (goto-char (nth 0 curly))
-        (delete-region (nth 0 curly) (nth 1 curly))
-        (insert new-name)))))
-
-
 ;;; Some movement commands
 
-(declare-function org-previous-visible-heading "org")
-(declare-function org-next-visible-heading "org")
 (declare-function evil-org-inner-object "evil-org")
-
-(defun evil-tex-go-back-section (&optional arg)
-  "Go back to the closest part/section/subsection etc.
-
-If given, go ARG sections up."
-  (interactive)
-  (cond
-   ((derived-mode-p 'org-mode) (org-previous-visible-heading (or arg 1)))
-   (t (re-search-backward evil-tex--section-regexp nil t arg))))
-
-(defun evil-tex-go-forward-section (&optional arg)
-  "Go forward to the closest part/section/subsection etc.
-
-If given, go ARG sections down."
-  (interactive)
-  (cond
-   ((derived-mode-p 'org-mode) (org-next-visible-heading (or arg 1)))
-   (t
-    ;; skip current looked-at section
-    (when (looking-at evil-tex--section-regexp)
-      (goto-char (match-end 0)))
-    (when (re-search-forward evil-tex--section-regexp nil arg)
-      (goto-char (match-beginning 0))))))
 
 (defun evil-tex-brace-movement ()
   "Brace movement similar to TAB in cdlatex.
@@ -700,16 +590,6 @@ when `org-mode' and `evil-org-mode' are enabled.")
              (evil-org-inner-object count beg end type))
             ;; Rethrow error otherwise
             (t (signal (car err) (cdr err)))))))
-
-(evil-define-text-object evil-tex-a-section (count &optional beg end type)
-  "Select a LaTeX section."
-  ;; evil-tex--select-section returns section type too
-  (nbutlast (evil-tex--select-section) 3))
-
-(evil-define-text-object evil-tex-inner-section (count &optional beg end type)
-  "Select inner LaTeX section."
-  ;; evil-tex--select-section returns section type too
-  (last (nbutlast (evil-tex--select-section)) 2))
 
 (evil-define-text-object evil-tex-a-subscript (count &optional beg end type)
   "Select a LaTeX subscript."
@@ -848,39 +728,6 @@ Add newlines if `evil-tex-include-newlines-in-envs' is t"
 (defvar evil-tex--delim-function-prefix "evil-tex-delims---"
   "Prefix used when generating delimiter functions from `evil-tex-delim-map-generator-alist'.")
 
-
-(defmacro evil-tex--texmathp-dispatch (math-format regular-format)
-  "Return cons for wrapping text in.
-
-If inside math, wrap with the marco constructed by MATH-FORMAT (string).
-Otherwise, with the macro constructed by REGULAR-FORMAT."
-  `(if (texmathp)
-       '(,(format "\\%s{" math-format) . "}")
-     '(,(format "\\%s{" regular-format) . "}")))
-
-(defun evil-tex-cdlatex-accents---rm ()
-  "Return the (start . end) that would make text rm style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathrm" "textrm"))
-(defun evil-tex-cdlatex-accents---it ()
-  "Return the (start . end) that would make text it style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathit" "textit"))
-(defun evil-tex-cdlatex-accents---sl ()
-  "Return the (start . end) that would make text sl style if wrapped between start and end."
-  (interactive)
-  (unless (texmathp) '("\\textsl{" . "}")))
-(defun evil-tex-cdlatex-accents---bold ()
-  "Return the (start . end) that would make text bold style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathbf" "textbf"))
-(defun evil-tex-cdlatex-accents---emph ()
-  "Return the (start . end) that would make text emph style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathem" "emph"))
-(defun evil-tex-cdlatex-accents---tt ()
-  "Return the (start . end) that would make text tt style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathtt" "texttt"))
-(defun evil-tex-cdlatex-accents---sf ()
-  "Return the (start . end) that would make text sf style if wrapped between start and end."
-  (interactive) (evil-tex--texmathp-dispatch "mathsf" "textsf"))
-
 (defvar evil-tex-inner-text-objects-map (make-sparse-keymap)
   "Inner text object keymap for `evil-tex'.")
 
@@ -912,7 +759,6 @@ Otherwise, with the macro constructed by REGULAR-FORMAT."
   (define-key inner-map "c" 'evil-tex-inner-command)
   (define-key inner-map "m" 'evil-tex-inner-math)
   (define-key inner-map "d" 'evil-tex-inner-delim)
-  (define-key inner-map "S" 'evil-tex-inner-section)
   (define-key inner-map "^" 'evil-tex-inner-superscript)
   (define-key inner-map "_" 'evil-tex-inner-subscript)
   (define-key inner-map "T" 'evil-tex-inner-table-cell)
@@ -921,7 +767,6 @@ Otherwise, with the macro constructed by REGULAR-FORMAT."
   (define-key outer-map "c" 'evil-tex-a-command)
   (define-key outer-map "m" 'evil-tex-a-math)
   (define-key outer-map "d" 'evil-tex-a-delim)
-  (define-key outer-map "S" 'evil-tex-a-section)
   (define-key outer-map "^" 'evil-tex-a-superscript)
   (define-key outer-map "_" 'evil-tex-a-subscript)
   (define-key outer-map "T" 'evil-tex-a-table-cell))
@@ -1036,13 +881,12 @@ Format is identical to `evil-tex-bind-to-env-map', see that for explaination."
        ("u" . "breve")
        ("m" . "mbox")
        ("c" . "mathcal")
-       ("r" . evil-tex-cdlatex-accents---rm)
-       ("i" . evil-tex-cdlatex-accents---it)
-       ("l" . evil-tex-cdlatex-accents---sl)
-       ("b" . evil-tex-cdlatex-accents---bold)
-       ("e" . evil-tex-cdlatex-accents---emph)
-       ("y" . evil-tex-cdlatex-accents---tt)
-       ("f" . evil-tex-cdlatex-accents---sf)
+       ("r" . "mathrm")
+       ("i" . "mathit")
+       ("b" . "mathbf")
+       ("e" . "mathem")
+       ("y" . "mathtt")
+       ("f" . "mathsf")
        ("0"   "{\\textstyle " . "}")
        ("1"   "{\\displaystyle " . "}")
        ("2"   "{\\scriptstyle " . "}")
@@ -1188,7 +1032,6 @@ until one of them returns non-nil.")
     (define-key keymap "m" #'evil-tex-toggle-math)
     (define-key keymap "M" #'evil-tex-toggle-math-align)
     (define-key keymap "c" #'evil-tex-toggle-command)
-    (define-key keymap "S" #'evil-tex-toggle-section)
     keymap)
   "Keymap for delimiter surrounding.")
 
