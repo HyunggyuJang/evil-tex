@@ -143,7 +143,7 @@ For example, \\epsilon is empty, \\dv{x} is not.")
 
 Inner commmand defined to be what is inside {}'s and []'s, or empty if none exist."
 
-  (pcase-let ((`(,beg-an ,end-an)
+  (pcase-let ((`(,beg-an . ,end-an)
                (org-inside-latex-macro-p)))
     (save-excursion
       (goto-char beg-an)
