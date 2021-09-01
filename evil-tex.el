@@ -664,13 +664,13 @@ Only when `org-mode' and `evil-org-mode' are enabled.")
 ;;; evil-surround setup
 
 (defun evil-tex--populate-surround-keymap (keymap generator-alist prefix
-                                                  single-strings-fn &optional cons-fn)
+                                                  single-strings-fn)
   "Populate KEYMAP with keys and callbacks from GENERATOR-ALIST.
 
 See `evil-tex-env-map-generator-alist' the the alist fromat.
 PREFIX is the prefix to give the generated functions created
 by (lambda () (interactive) (SINGLE-STRINGS-FN env)) if the input is a string,
-and by (lambda () (interactive) (CONS-FN env)) if it's a cons
+and by (lambda () (interactive) env) if it's a cons
 Return KEYMAP."
   (dolist (pair generator-alist)
     (let ((key (car pair))
@@ -683,9 +683,7 @@ Return KEYMAP."
         (define-key keymap key name))
        ((consp env)
         (setq name (intern (concat prefix (car env))))
-        (if cons-fn
-            (fset name (lambda () (interactive) (funcall cons-fn env)))
-          (fset name (lambda () (interactive) env)))
+        (fset name (lambda () (interactive) env))
         (define-key keymap key name))
        ((or (functionp env) (not env))
         (define-key keymap key env)))))
@@ -739,16 +737,9 @@ Respect the value of `evil-tex-include-newlines-in-envs'."
   (cons (format "\\begin{%s}%s"
                 env-name
                 (if evil-tex-include-newlines-in-envs "\n" ""))
-        (format "\\end{%s}" env-name)))
-
-(defun evil-tex-format-env-cons-for-surrounding (env-cons)
-  "Format ENV-CONS for surrounding.
-
-Add newlines if `evil-tex-include-newlines-in-envs' is t"
-  (declare (side-effect-free t))
-  (if evil-tex-include-newlines-in-envs
-      (cons (concat (car env-cons) "\n") (cdr env-cons))
-    env-cons))
+        (format "%s\\end{%s}"
+                (if evil-tex-include-newlines-in-envs "\n" "")
+                env-name)))
 
 (defun evil-tex-format-cdlatex-accent-for-surrounding (accent)
   "Format ACCENT for surrounding: return a cons of ( \\ACCENT{ . } )."
@@ -843,8 +834,7 @@ cons. `evil-tex-include-newlines-in-envs' has no effect in this case."
    (or keymap evil-tex-env-map)
    key-generator-alist
    evil-tex--env-function-prefix
-   #'evil-tex-get-env-for-surrounding
-   #'evil-tex-format-env-cons-for-surrounding))
+   #'evil-tex-get-env-for-surrounding))
 
 (setq evil-tex-env-map
   (let ((keymap (make-sparse-keymap)))
