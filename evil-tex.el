@@ -136,14 +136,15 @@ ARGS passed to `evil-select-paren', within `evil-tex--delim-finder'."
 
 For example, \\epsilon is empty, \\dv{x} is not.")
 
+(declare-function org-inside-latex-macro-p "org")
+
 (defun evil-tex--select-command ()
   "Return (outer-beg outer-end inner-beg inner-end) of command (macro) object.
 
 Inner commmand defined to be what is inside {}'s and []'s, or empty if none exist."
 
-  (let ((beg-an (TeX-find-macro-start))
-        (end-an (TeX-find-macro-end))
-        beg-inner end-inner)
+  (pcase-let ((`(,beg-an ,end-an)
+               (org-inside-latex-macro-p)))
     (save-excursion
       (goto-char beg-an)
       (if (re-search-forward "{\\|\\[" end-an t)
@@ -151,16 +152,18 @@ Inner commmand defined to be what is inside {}'s and []'s, or empty if none exis
         (setq evil-tex--last-command-empty t)))
     (unless beg-an
       (user-error "No surrounding command found"))
-    (save-excursion
-      (goto-char beg-an)
-      (if (re-search-forward "{\\|\\[" end-an t)
-          (setq beg-inner (point))
-        (setq beg-inner end-an))) ;goto opeing brace if exists.
-    (save-excursion
-      (goto-char end-an)
-      (when (looking-back "}\\|\\]" (- (point) 2))
-        (backward-char))
-      (setq end-inner (point)) ; set end of inner to be {|} only in command is not empty
+    (let ((beg-inner
+           (save-excursion
+             (goto-char beg-an)
+             (if (re-search-forward "{\\|\\[" end-an t)
+                 (point)
+               end-an)));goto opeing brace if exists.
+          (end-inner
+           (save-excursion
+             (goto-char end-an)
+             (when (looking-back "}\\|\\]" (- (point) 2))
+               (backward-char))
+             (point)))) ; set end of inner to be {|} only in command is not empty
       (list beg-an end-an beg-inner end-inner))))
 
 (defcustom evil-tex-include-newlines-in-envs t
@@ -180,6 +183,46 @@ doing 'cie' you're placed on a separate line."
   :type 'boolean
   :group 'evil-tex)
 
+(defun evil-tex-find-matching-begin ()
+  "Move point to the \\begin of the current environment."
+  (let* ((regexp "\\\\\\(begin\\|end\\)\\b")
+         (level 1)
+         (case-fold-search nil))
+    (skip-chars-backward (concat "a-zA-Z \t{"))
+    (unless (bolp)
+      (backward-char 1)
+      (and (looking-at regexp)
+           (char-equal (char-after (1+ (match-beginning 0))) ?b)
+           (setq level 0)))
+    (while (and (> level 0) (re-search-backward regexp nil t))
+      (if (= (char-after (1+ (match-beginning 0))) ?e) ;;end
+          (setq level (1+ level))
+        (setq level (1- level))))
+    (or (= level 0)
+        (error "Can't locate beginning of current environment"))))
+
+(defun evil-tex-find-matching-end ()
+  "Move point to the \\end of the current environment."
+  (let* ((regexp "\\\\\\(begin\\|end\\)\\b")
+         (level 1)
+         (case-fold-search nil))
+    (let ((pt (point)))
+      (skip-chars-backward (concat "a-zA-Z \t{"))
+      (unless (bolp)
+        (backward-char 1)
+        (if (and (looking-at regexp)
+                 (char-equal (char-after (1+ (match-beginning 0))) ?e))
+            (setq level 0)
+          (goto-char pt))))
+    (while (and (> level 0) (re-search-forward regexp nil t))
+      (if (= (char-after (1+ (match-beginning 0))) ?b) ;;begin
+          (setq level (1+ level))
+        (setq level (1- level))))
+    (if (= level 0)
+        (re-search-forward
+         "{\\([^}{]*\\({[^}{]*}\\)*[^}{]*\\)}")
+      (error "Can't locate end of current environment"))))
+
 (defun evil-tex--select-env ()
   "Return (outer-beg outer-end inner-beg inner-end) for enviornment object.
 
@@ -195,16 +238,16 @@ qux
   (let (outer-beg outer-end inner-beg inner-end)
     (save-excursion
       (cond
-       ;; `LaTeX-find-matching-begin' doesn't like being exactly on the \\begin
+       ;; `evil-tex-find-matching-begin' doesn't like being exactly on the \\begin
        ((looking-at (regexp-quote "\\begin{"))
         t)
-       ;; `LaTeX-find-matching-begin' doesn't like being near the } of \\end{}
+       ;; `evil-tex-find-matching-begin' doesn't like being near the } of \\end{}
        ((or (= (char-before) ?})
             (= (char-after) ?}))
         (backward-char 2)
-        (LaTeX-find-matching-begin))
+        (evil-tex-find-matching-begin))
        (t
-        (LaTeX-find-matching-begin)))
+        (evil-tex-find-matching-begin)))
       ;; We are at backslash of \\begin
       (setq outer-beg (point))
       (forward-sexp)
@@ -217,7 +260,7 @@ qux
         (goto-char (match-end 0)))
       (setq inner-beg (point))
       (goto-char (1+ outer-beg))
-      (LaTeX-find-matching-end)        ; we are at closing brace
+      (evil-tex-find-matching-end)        ; we are at closing brace
       (setq outer-end (point))
       (search-backward "\\end")        ; goto backslash
       (when (and evil-tex-select-newlines-with-envs
@@ -376,7 +419,7 @@ and the inner ones will not include it or surrounding {} if they exist."
                       inner-beg (+ 2 (point))
                       found-beg t))
                ((looking-at "\\\\end")
-                (LaTeX-find-matching-begin)))
+                (evil-tex-find-matching-begin)))
             (setq outer-beg env-beg
                   inner-beg env-beg
                   found-beg t))))
@@ -395,7 +438,7 @@ and the inner ones will not include it or surrounding {} if they exist."
                       inner-end (1- (point))
                       found-end t))
                ((looking-at "n")
-                (LaTeX-find-matching-end))))
+                (evil-tex-find-matching-end))))
           (setq outer-end env-end
                 inner-end env-end
                 found-end t)))
@@ -564,8 +607,8 @@ Example: (| symbolizes point)
   (last (evil-tex--select-command) 2))
 
 (defvar evil-tex-env-fallback-evil-org t
-  "When non-nil, fallback to `evil-org-an-object' and `evil-org-inner-object'
-when `org-mode' and `evil-org-mode' are enabled.")
+  "When non-nil, fallback to `evil-org-an-object' and `evil-org-inner-object'.
+Only when `org-mode' and `evil-org-mode' are enabled.")
 
 (evil-define-text-object evil-tex-an-env (count &optional beg end type)
   "Select a LaTeX environment."
@@ -577,7 +620,7 @@ when `org-mode' and `evil-org-mode' are enabled.")
                   (fboundp 'evil-org-an-object))
              (evil-org-an-object count beg end type))
             ;; Rethrow error otherwise
-            (t (signal (car err) (cdr (err))))))))
+            (t (signal (car err) (cdr err)))))))
 
 (evil-define-text-object evil-tex-inner-env (count &optional beg end type)
   "Select inner LaTeX environment."
@@ -736,9 +779,6 @@ Add newlines if `evil-tex-include-newlines-in-envs' is t"
 
 (defvar evil-tex-mode-map
   (let ((keymap (make-sparse-keymap)))
-    (evil-define-key* '(motion normal) keymap
-      "[[" #'evil-tex-go-back-section
-      "]]" #'evil-tex-go-forward-section)
     (define-key keymap (kbd "M-n") #'evil-tex-brace-movement)
     (evil-define-key '(visual operator) 'evil-tex-mode
       "i" evil-tex-inner-text-objects-map
