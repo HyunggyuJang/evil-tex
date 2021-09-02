@@ -1,14 +1,14 @@
-;;; evil-tex.el --- Useful features for editing LaTeX in evil-mode -*- lexical-binding: t; -*-
+;;; evil-tex.el --- Useful features for editing LaTeX in evil-org-mode -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2020-2021 Yoav Marco, Itai Y. Efrat
 ;;
-;; Authors: Yoav Marco <https://github.com/ymarco>, Itai Y. Efrat <https://github.com/iyefrat>
+;; Authors: Yoav Marco <https://github.com/ymarco>, Itai Y. Efrat <https://github.com/iyefrat>, Hyunggyu Jang <https://github.com/HyunggyuJang>
 ;; Maintainers: Yoav Marco <yoavm448@gmail.com>, Itai Y. Efrat <itai3397@gmail.com>
 ;; Created: February 01, 2020
-;; Modified: August 02, 2020
+;; Modified: September 02, 2021
 ;; Version: 1.0.2
 ;; Keywords: tex, emulation, vi, evil, wp
-;; Homepage: https://github.com/iyefrat/evil-tex
+;; Homepage: https://github.com/HyunggyuJang/evil-tex
 ;; Package-Requires: ((emacs "26.1") (evil "1.0"))
 ;;
 ;; This file is NOT part of GNU Emacs.
@@ -30,7 +30,7 @@
 ;;
 ;;; Commentary:
 ;;
-;;  Useful features for editing LaTeX in evil-mode
+;;  Useful features for editing LaTeX in evil-org-mode
 ;;
 ;;; Code:
 
@@ -555,8 +555,6 @@ Respect the value of `evil-tex-include-newlines-in-envs'.
 
 ;;; Some movement commands
 
-(declare-function evil-org-inner-object "evil-org")
-
 (defun evil-tex-brace-movement ()
   "Brace movement similar to TAB in cdlatex.
 
@@ -612,27 +610,11 @@ Only when `org-mode' and `evil-org-mode' are enabled.")
 
 (evil-define-text-object evil-tex-an-env (count &optional beg end type)
   "Select a LaTeX environment."
-  (condition-case err (nbutlast (evil-tex--select-env) 2)
-    (error (cond
-            ;; Fallback to evil-org binding in org-mode
-            ((and evil-tex-env-fallback-evil-org
-                  (derived-mode-p 'org-mode)
-                  (fboundp 'evil-org-an-object))
-             (evil-org-an-object count beg end type))
-            ;; Rethrow error otherwise
-            (t (signal (car err) (cdr err)))))))
+  (nbutlast (evil-tex--select-env) 2))
 
 (evil-define-text-object evil-tex-inner-env (count &optional beg end type)
   "Select inner LaTeX environment."
-  (condition-case err (last (evil-tex--select-env) 2)
-    (error (cond
-            ;; Fallback to evil-org binding in org-mode
-            ((and evil-tex-env-fallback-evil-org
-                  (derived-mode-p 'org-mode)
-                  (fboundp 'evil-org-an-object))
-             (evil-org-inner-object count beg end type))
-            ;; Rethrow error otherwise
-            (t (signal (car err) (cdr err)))))))
+  (last (evil-tex--select-env) 2))
 
 (evil-define-text-object evil-tex-a-subscript (count &optional beg end type)
   "Select a LaTeX subscript."
@@ -786,7 +768,7 @@ Respect the value of `evil-tex-include-newlines-in-envs'."
       ;; pollute the global namespace if evil-surround is too old
       (cons evil-inner-text-objects-map evil-outer-text-objects-map))
 
-  (define-key inner-map "e" 'evil-tex-inner-env)
+  (define-key inner-map "v" 'evil-tex-inner-env)
   (define-key inner-map "c" 'evil-tex-inner-command)
   (define-key inner-map "m" 'evil-tex-inner-math)
   (define-key inner-map "d" 'evil-tex-inner-delim)
@@ -794,7 +776,7 @@ Respect the value of `evil-tex-include-newlines-in-envs'."
   (define-key inner-map "_" 'evil-tex-inner-subscript)
   (define-key inner-map "T" 'evil-tex-inner-table-cell)
 
-  (define-key outer-map "e" 'evil-tex-an-env)
+  (define-key outer-map "v" 'evil-tex-an-env)
   (define-key outer-map "c" 'evil-tex-a-command)
   (define-key outer-map "m" 'evil-tex-a-math)
   (define-key outer-map "d" 'evil-tex-a-delim)
