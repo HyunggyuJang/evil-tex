@@ -604,10 +604,6 @@ Example: (| symbolizes point)
   "Select inner LaTeX command (macro)."
   (last (evil-tex--select-command) 2))
 
-(defvar evil-tex-env-fallback-evil-org t
-  "When non-nil, fallback to `evil-org-an-object' and `evil-org-inner-object'.
-Only when `org-mode' and `evil-org-mode' are enabled.")
-
 (evil-define-text-object evil-tex-an-env (count &optional beg end type)
   "Select a LaTeX environment."
   (nbutlast (evil-tex--select-env) 2))
